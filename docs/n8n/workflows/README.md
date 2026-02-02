@@ -30,3 +30,12 @@
    - Low leverage
 5. Stocks passing all criteria are stored as "qualified ideas" for paper trading.
 
+
+## Notes on reproducibility
+
+This repository focuses on documenting system design and logic.
+
+API keys, database credentials, and environment variables have been intentionally removed.
+The n8n workflows are provided for demonstration and architectural understanding rather than direct execution.
+
+
