@@ -1,0 +1,111 @@
+
+{
+  "meta": {
+    "instanceId": "your-instance-id"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "cronExpression": "0 7 * * *"
+      },
+      "id": "1",
+      "name": "Daily Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT ticker, name FROM stocks"
+      },
+      "id": "2",
+      "name": "Fetch Tickers",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [500, 300],
+      "credentials": {
+        "postgres": "YOUR_POSTGRES_CREDENTIAL_NAME"
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://financialmodelingprep.com/api/v3/profile/{{$json[\"ticker\"]}}?apikey=YOUR_FMP_API_KEY",
+        "responseFormat": "json",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Get Fundamentals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const data = items[0].json[0];
+
+if (
+  data.returnOnCapitalEmployed > 9 &&
+  data.operatingMargin > 4 &&
+  data.revenueGrowth > 0 &&
+  data.priceToCashFlow < 7 &&
+  data.debtEquityRatio < 0.5
+) {
+  return [{
+    json: {
+      ticker: data.symbol,
+      name: data.companyName,
+      roce: data.returnOnCapitalEmployed,
+      operating_margin: data.operatingMargin,
+      revenue_growth: data.revenueGrowth,
+      price_to_cashflow: data.priceToCashFlow,
+      debt: data.debtEquityRatio
+    }
+  }];
+} else {
+  return [];
+}"
+      },
+      "id": "4",
+      "name": "Screening Logic",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "screened_stocks",
+        "columns": "ticker,name,roce,operating_margin,revenue_growth,price_to_cashflow,debt",
+        "values": "{{ $json.ticker }}, {{ $json.name }}, {{ $json.roce }}, {{ $json.operating_margin }}, {{ $json.revenue_growth }}, {{ $json.price_to_cashflow }}, {{ $json.debt }}"
+      },
+      "id": "5",
+      "name": "Insert Screened Stock",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1250, 300],
+      "credentials": {
+        "postgres": "YOUR_POSTGRES_CREDENTIAL_NAME"
+      }
+    }
+  ],
+  "connections": {
+    "Daily Trigger": {
+      "main": [[{"node": "Fetch Tickers","type": "main","index": 0}]]
+    },
+    "Fetch Tickers": {
+      "main": [[{"node": "Get Fundamentals","type": "main","index": 0}]]
+    },
+    "Get Fundamentals": {
+      "main": [[{"node": "Screening Logic","type": "main","index": 0}]]
+    },
+    "Screening Logic": {
+      "main": [[{"node": "Insert Screened Stock","type": "main","index": 0}]]
+    }
+  },
+  "settings": {},
+  "name": "Euro Stoxx Screening Bot",
+  "active": false,
+  "versionId": "v1"
+}
